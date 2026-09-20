@@ -100,8 +100,8 @@ describe('Read-Only Mode', () => {
 
     registerGraphTools(mockServer, {} as GraphClient, options.readOnly);
 
-    // 4 mocked endpoints (get-schedule skipped: workScopes only, no orgMode) + parse-teams-url + download-bytes
-    expect(mockServer.tool).toHaveBeenCalledTimes(6);
+    // 4 mocked endpoints (get-schedule skipped: workScopes only, no orgMode) + parse-teams-url + download-bytes + save-attachment-to-onedrive
+    expect(mockServer.tool).toHaveBeenCalledTimes(7);
 
     const toolCalls = mockServer.tool.mock.calls.map((call: unknown[]) => call[0]);
     expect(toolCalls).toContain('list-mail-messages');

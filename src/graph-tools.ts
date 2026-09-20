@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 import { TOOL_CATEGORIES } from './tool-categories.js';
 import { getRequestTokens } from './request-context.js';
 import { parseTeamsUrl } from './lib/teams-url-parser.js';
+import { DEFAULT_FOLDER, saveAttachmentToOneDrive } from './lib/save-attachment.js';
 import { buildBM25Index, scoreQuery, tokenize, type BM25Index } from './lib/bm25.js';
 export interface DiscoverySearchIndex {
   bm25: BM25Index;
@@ -234,6 +235,85 @@ export const UTILITY_TOOLS: readonly UtilityTool[] = [
           accountAccessToken = await authManager.getTokenForAccount(accountParam);
         }
         return await graphClient.graphRequest(target, { accessToken: accountAccessToken });
+      } catch (error) {
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ error: (error as Error).message }) }],
+          isError: true,
+        };
+      }
+    },
+  },
+  {
+    name: 'save-attachment-to-onedrive',
+    method: 'POST',
+    path: 'tool:save-attachment-to-onedrive',
+    description:
+      "Copy a mail attachment into the signed-in user's OneDrive, server-side: the bytes go from Graph to Graph and never through the client. Use this instead of download-bytes whenever the attachment is a document to be read later from disk (PDF, DOCX, images). Returns metadata only: { saved, attachment: {name, contentType, size}, driveItem: {id, name, size, webUrl, parentPath}, folder, bytesUploaded, method }. list-mail-attachments gives the attachment id. Only fileAttachment is supported (not itemAttachment or referenceAttachment). Files over 4 MB use an upload session. Name collisions are renamed, never overwritten.",
+    readOnlyHint: false,
+    openWorldHint: true,
+    buildSchema: (ctx) => {
+      const schema: Record<string, z.ZodTypeAny> = {
+        messageId: z
+          .string()
+          .describe('The mail message id (from list-mail-messages or a folder listing).'),
+        attachmentId: z.string().describe('The attachment id (from list-mail-attachments).'),
+        folder: z
+          .string()
+          .optional()
+          .describe(
+            'OneDrive folder path starting with "/", created if missing. Default: ' + DEFAULT_FOLDER
+          ),
+        filename: z
+          .string()
+          .optional()
+          .describe("Override the saved file name; defaults to the attachment's own name."),
+      };
+      if (ctx.multiAccount) {
+        schema['account'] = z
+          .string()
+          .optional()
+          .describe(
+            'Account to use when multiple Microsoft accounts are configured. Required when multiple accounts exist (see list-accounts).'
+          );
+      }
+      return schema;
+    },
+    execute: async (params, { graphClient, authManager }) => {
+      const messageId = params.messageId;
+      const attachmentId = params.attachmentId;
+      const folder =
+        typeof params.folder === 'string' && params.folder ? params.folder : DEFAULT_FOLDER;
+      const filename = typeof params.filename === 'string' ? params.filename : undefined;
+      const accountParam = params.account as string | undefined;
+      if (
+        typeof messageId !== 'string' ||
+        !messageId ||
+        typeof attachmentId !== 'string' ||
+        !attachmentId
+      ) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({ error: 'messageId and attachmentId are required.' }),
+            },
+          ],
+          isError: true,
+        };
+      }
+      try {
+        let accountAccessToken: string | undefined;
+        if (authManager && !authManager.isOAuthModeEnabled() && !getRequestTokens()) {
+          accountAccessToken = await authManager.getTokenForAccount(accountParam);
+        }
+        const result = await saveAttachmentToOneDrive(graphClient, {
+          messageId,
+          attachmentId,
+          folder,
+          filename,
+          accessToken: accountAccessToken,
+        });
+        return { content: [{ type: 'text', text: JSON.stringify(result) }] };
       } catch (error) {
         return {
           content: [{ type: 'text', text: JSON.stringify({ error: (error as Error).message }) }],
