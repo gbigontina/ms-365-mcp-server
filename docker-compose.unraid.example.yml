@@ -6,7 +6,7 @@
 #
 # Before deploying:
 #   1. Push branch `local-front-auth` to your fork so GitHub Actions builds the
-#      image at ghcr.io/guidobigontina/ms-365-mcp-server:local-front-auth
+#      image at ghcr.io/gbigontina/ms-365-mcp-server:local-front-auth
 #   2. If the image is private (GHCR default), either make it public
 #      (Packages → ms-365-mcp-server → Settings → Change visibility → Public)
 #      OR `docker login ghcr.io` on Unraid with a PAT.
@@ -17,14 +17,14 @@
 
 services:
   ms365-mcp:
-    image: ghcr.io/guidobigontina/ms-365-mcp-server:local-front-auth
+    image: ghcr.io/gbigontina/ms-365-mcp-server:local-front-auth
     container_name: ms365-mcp
     restart: unless-stopped
     command:
       - --http
       - "3000"
       - --public-url
-      - https://mcp.exassistai.com
+      - https://mcp.example.com
       - -v
       - --preset
       - personal
@@ -42,7 +42,6 @@ services:
       # ── Azure app registration ──────────────────────────────────────────
       MS365_MCP_CLIENT_ID: ${MS365_MCP_CLIENT_ID:?set Azure app client id}
       MS365_MCP_TENANT_ID: common
-      # NOTE: rotate the secret you pasted in chat earlier before using it here.
       MS365_MCP_CLIENT_SECRET: ${MS365_MCP_CLIENT_SECRET:?set Azure app client secret}
 
       # ── MSAL cache persistence (critical: refresh token lives here) ─────
